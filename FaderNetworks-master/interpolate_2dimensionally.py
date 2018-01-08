@@ -75,9 +75,10 @@ def get_interpolations_2dim(ae, images, attributes, params):
     # original image / reconstructed image / interpolations
     outputs = []
     #pdb.set_trace()
-    outputs.append(torch.cat([images.unsqueeze(0)] + [Variable(torch.ones(1, 1, 3, 256, 256) * 255).cuda()] * (params.n_interpolations - 1), 0))
-    outputs.append(torch.cat([ae.decode(enc_outputs, attributes)[-1].unsqueeze(0)] \
-                             + [Variable(torch.ones(1, 1, 3, 256, 256) * 255).cuda()] * (params.n_interpolations - 1), 0))
+    images = images.unsqueeze(1).unsqueeze(2)
+    outputs.append(torch.cat([images] + [Variable(torch.ones(images.size()) * 255).cuda()] * (params.n_interpolations - 1), 1))
+    recons = ae.decode(enc_outputs, attributes)[-1].unsqueeze(1).unsqueeze(2)
+    outputs.append(torch.cat([recons] + [Variable(torch.ones(recons.size()) * 255).cuda()] * (params.n_interpolations - 1), 1))
     #outputs.append(ae.decode(enc_outputs, attributes)[-1])
     #pdb.set_trace()
     for alpha_1 in alphas_1:
@@ -87,9 +88,9 @@ def get_interpolations_2dim(ae, images, attributes, params):
             alpha = Variable(alpha.unsqueeze(0).expand((len(images), int(params.n_attr))).cuda())
             stack.append(ae.decode(enc_outputs, alpha)[-1])
         #pdb.set_trace()
-        outputs.append(torch.cat([x.unsqueeze(0) for x in stack], 0))
+        outputs.append(torch.cat([x.unsqueeze(1).unsqueeze(1) for x in stack], 1))
 
-    return torch.cat(outputs, 1).data.cpu()
+    return torch.cat(outputs, 2).data.cpu()
 
 interpolations = []
 
@@ -97,11 +98,10 @@ for k in range(0, params.n_images, 100):
     i = params.offset + k
     j = params.offset + min(params.n_images, k + 100)
     images, attributes = test_data.eval_batch(i, j)
-    pdb.set_trace()
     interpolations.append(get_interpolations_2dim(ae, images, attributes, params))
 
 #interpolations = torch.cat(interpolations, 0)
-assert interpolations[0].size() == (params.n_interpolations, params.n_interpolations + 2,
+assert interpolations[0].size() == (params.n_images, params.n_interpolations, params.n_interpolations + 2,
                                  3, params.img_sz, params.img_sz)
 
 def get_grid(images, row_wise, plot_size=5):
@@ -118,6 +118,7 @@ def get_grid(images, row_wise, plot_size=5):
 
 # generate the grid / save it to a PNG file
 imname, extension = os.path.splitext(params.output_path)
-for idx in range(params.n_images):
-    grid = get_grid(interpolations[idx], params.row_wise, params.plot_size)
-    matplotlib.image.imsave(imname + '_' + str(idx) +  extension, grid.numpy().transpose((1, 2, 0)))
+for idx_interpolations in range(len(interpolations)):
+    for idx in range(params.n_images):
+        grid = get_grid(interpolations[idx_interpolations][idx], params.row_wise, params.plot_size)
+        matplotlib.image.imsave(imname + '_' + str(params.offset + idx) +  extension, grid.numpy().transpose((1, 2, 0)))
