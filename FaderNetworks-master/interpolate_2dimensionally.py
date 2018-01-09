@@ -67,6 +67,7 @@ def get_interpolations_2dim(ae, images, attributes, params):
     """
     assert len(images) == len(attributes)
     enc_outputs = ae.encode(images)
+    #pdb.set_trace()
 
     # interpolation values
     alphas_1 = np.linspace(1 - params.alpha_min_1, params.alpha_max_1, params.n_interpolations)
@@ -74,7 +75,7 @@ def get_interpolations_2dim(ae, images, attributes, params):
 
     # original image / reconstructed image / interpolations
     outputs = []
-    #pdb.set_trace()
+    pdb.set_trace()
     images = images.unsqueeze(1).unsqueeze(2)
     outputs.append(torch.cat([images] + [Variable(torch.ones(images.size()) * 255).cuda()] * (params.n_interpolations - 1), 1))
     recons = ae.decode(enc_outputs, attributes)[-1].unsqueeze(1).unsqueeze(2)
