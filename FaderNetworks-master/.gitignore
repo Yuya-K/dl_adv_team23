@@ -105,6 +105,7 @@ venv.bak/
 
 # End of https://www.gitignore.io/api/python
 
-# data
+# ignore data, models
 /images
 /synthesized_images
+/models
