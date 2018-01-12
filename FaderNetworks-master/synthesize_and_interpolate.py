@@ -31,8 +31,8 @@ parser.add_argument("--alpha_max_2", type=float, default=1,
                     help="Max interpolation value for the 2nd attribute")
 parser.add_argument("--plot_size", type=int, default=5,
                     help="Size of images in the grid")
-parser.add_argument("--merge_ratio", type=float, default=1.,
-                    help="merge ratio (of the 1st image)")
+parser.add_argument("--merge_ratio", type=float, default=0.5,
+                    help="merge ratio (of the 1st image) [0,1]")
 
 # これいらない
 parser.add_argument("--row_wise", type=bool_flag, default=True,
@@ -66,18 +66,21 @@ assert params.n_images % 2 == 0
 data, attributes = load_images(params)
 test_data = DataSampler(data[2], attributes[2], params)
 
-def synthesize(enc_outputs, params, merge_ratio=1.):
+def synthesize(enc_outputs, params):
     """
     obtain the weighted averages of enc_outputs
     """
     assert enc_outputs[-1].size(0) == params.n_images
     synthesized_outputs = [torch.FloatTensor(torch.Size([int(params.n_images/2)]) + \
-                                                     enc_outputs[i].size()[1:]) for i in range(len(enc_outputs))]
+                                                    enc_outputs[i].size()[1:]) for i in range(len(enc_outputs))]
+
     
     for i in range(len(synthesized_outputs)):
         for j in range(int(params.n_images/2)):
-            synthesized_outputs[i][j] = (enc_outputs[i][2*j].data * merge_ratio + \
-                                                                enc_outputs[i][2*j+1].data) / (merge_ratio + 1)
+            # synthesized_outputs[i][j] = (enc_outputs[i][2*j].data * merge_ratio + \
+            #                                                     enc_outputs[i][2*j+1].data) / (merge_ratio + 1)
+            synthesized_outputs[i][j] = (enc_outputs[i][2*j].data * params.merge_ratio + \
+                                                                enc_outputs[i][2*j+1].data * (1 - params.merge_ratio))
     synthesized_outputs = [Variable(tensor).cuda() for tensor in synthesized_outputs]
     return synthesized_outputs
 
