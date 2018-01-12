@@ -79,8 +79,8 @@ def synthesize(enc_outputs, params):
         for j in range(int(params.n_images/2)):
             # synthesized_outputs[i][j] = (enc_outputs[i][2*j].data * merge_ratio + \
             #                                                     enc_outputs[i][2*j+1].data) / (merge_ratio + 1)
-            synthesized_outputs[i][j] = (enc_outputs[i][2*j].data * merge_ratio + \
-                                                                enc_outputs[i][2*j+1].data * (1 - merge_ratio))
+            synthesized_outputs[i][j] = (enc_outputs[i][2*j].data * params.merge_ratio + \
+                                                                enc_outputs[i][2*j+1].data * (1 - params.merge_ratio))
     synthesized_outputs = [Variable(tensor).cuda() for tensor in synthesized_outputs]
     return synthesized_outputs
 
