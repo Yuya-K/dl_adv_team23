@@ -25,7 +25,7 @@ def crop_face(image_path, cascade_path=CASCADE_PATH):
     """
     crop face from the image in image_path
     """
-    image = cv2.imread(image_path)
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     
     # convert image to grayscale
     image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -51,13 +51,12 @@ def main():
     for image_name in image_name_list:
         image_path = os.path.join(input_path, image_name)
         crop_image_list = crop_face(image_path)
-        print(len(crop_image_list))
         for idx, crop_image in enumerate(crop_image_list):
             resized_image = cv2.resize(crop_image, SIZE)
             image_name_body, image_name_extension = os.path.splitext(image_name)
             output_image_path = os.path.join(output_path, image_name_body + "_" + str(idx) + image_name_extension)
-            print(output_image_path)
-            cv2.imwrite(output_image_path, crop_image)
+            print("Save", output_image_path)
+            cv2.imwrite(output_image_path, resized_image)
 
 
 
