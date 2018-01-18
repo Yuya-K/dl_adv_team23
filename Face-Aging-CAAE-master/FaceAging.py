@@ -32,7 +32,8 @@ class FaceAging(object):
                  tile_ratio=1.0,  # ratio of the length between tiled label and z
                  is_training=True,  # flag for training or testing mode
                  save_dir='./save',  # path to save checkpoints, samples, and summary
-                 dataset_name='UTKFace'  # name of the dataset in the folder ./data
+                 dataset_name='UTKFace',  # name of the dataset in the folder ./data
+                 synthesize=False
                  ):
 
         self.session = session
@@ -50,6 +51,7 @@ class FaceAging(object):
         self.is_training = is_training
         self.save_dir = save_dir
         self.dataset_name = dataset_name
+        self.synthesize = synthesize
 
         # ************************************* input to graph ********************************************************
         self.input_image = tf.placeholder(
@@ -57,21 +59,40 @@ class FaceAging(object):
             [self.size_batch, self.size_image, self.size_image, self.num_input_channels],
             name='input_images'
         )
-        self.age = tf.placeholder(
-            tf.float32,
-            [self.size_batch, self.num_categories],
-            name='age_labels'
-        )
-        self.gender = tf.placeholder(
-            tf.float32,
-            [self.size_batch, 2],
-            name='gender_labels'
-        )
-        self.z_prior = tf.placeholder(
-            tf.float32,
-            [self.size_batch, self.num_z_channels],
-            name='z_prior'
-        )
+        if self.synthesize == True:
+            assert self.size_batch % 2 == 0
+            self.age = tf.placeholder(
+                tf.float32,
+                [self.size_batch/2, self.num_categories],
+                name='age_labels'
+            )
+            self.gender = tf.placeholder(
+                tf.float32,
+                [self.size_batch/2, 2],
+                name='gender_labels'
+            )
+            self.z_prior = tf.placeholder(
+                tf.float32,
+                [self.size_batch/2, self.num_z_channels],
+                name='z_prior'
+            )
+        else:
+            self.age = tf.placeholder(
+                tf.float32,
+                [self.size_batch, self.num_categories],
+                name='age_labels'
+            )
+            self.gender = tf.placeholder(
+                tf.float32,
+                [self.size_batch, 2],
+                name='gender_labels'
+            )
+            self.z_prior = tf.placeholder(
+                tf.float32,
+                [self.size_batch, self.num_z_channels],
+                name='z_prior'
+            )
+
         # ************************************* build the graph *******************************************************
         print '\n\tBuilding graph ...'
 
@@ -79,15 +100,32 @@ class FaceAging(object):
         self.z = self.encoder(
             image=self.input_image
         )
+        if self.synthesize == True:
+            idx = tf.range(self.size_batch)
+            idx = tf.reshape(idx, [-1, 1])    # Convert to a len(yp) x 1 matrix.
+            idx = tf.tile(idx, [1, 2])  # Create multiple columns.
+            idx = tf.reshape(idx, [-1])       # Convert back to a vector.
 
+            self.z_synthesized = tf.segment_mean(self.z, idx)
+            
         # generator: z + label --> generated image
-        self.G = self.generator(
-            z=self.z,
-            y=self.age,
-            gender=self.gender,
-            enable_tile_label=self.enable_tile_label,
-            tile_ratio=self.tile_ratio
-        )
+        if self.synthesize == True:
+            self.G = self.generator(
+                z=self.z_synthesized,
+                y=self.age,
+                gender=self.gender,
+                enable_tile_label=self.enable_tile_label,
+                tile_ratio=self.tile_ratio
+            )
+        else:
+            self.G = self.generator(
+                z=self.z,
+                y=self.age,
+                gender=self.gender,
+                enable_tile_label=self.enable_tile_label,
+                tile_ratio=self.tile_ratio
+            )
+            
 
         # discriminator on z
         self.D_z, self.D_z_logits = self.discriminator_z(
@@ -680,6 +718,46 @@ class FaceAging(object):
             size_frame=[size_sample, size_sample]
         )
 
+        
+    def test_synthesize(self, images, gender, name):
+        test_dir = os.path.join(self.save_dir, 'test')
+        if not os.path.exists(test_dir):
+            os.makedirs(test_dir)
+        images = images[:int(np.sqrt(self.size_batch)), :, :, :]
+        gender = gender[:int(np.sqrt(self.size_batch)), :]
+        size_sample = images.shape[0]
+        labels = np.arange(size_sample)
+        labels = np.repeat(labels, size_sample)
+        query_labels = np.ones(
+            shape=(size_sample ** 2, size_sample),
+            dtype=np.float32
+        ) * self.image_value_range[0]
+        for i in range(query_labels.shape[0]):
+            query_labels[i, labels[i]] = self.image_value_range[-1]
+        query_images = np.tile(images, [self.num_categories, 1, 1, 1])
+        query_gender = np.tile(gender, [self.num_categories, 1])
+        z, G = self.session.run(
+            [self.z, self.G],
+            feed_dict={
+                self.input_image: query_images,
+                self.age: query_labels,
+                self.gender: query_gender
+            }
+        )
+        
+        save_batch_images(
+            batch_images=query_images,
+            save_path=os.path.join(test_dir, 'input.png'),
+            image_value_range=self.image_value_range,
+            size_frame=[size_sample, size_sample]
+        )
+        save_batch_images(
+            batch_images=G,
+            save_path=os.path.join(test_dir, name),
+            image_value_range=self.image_value_range,
+            size_frame=[size_sample, size_sample]
+        )
+
     def custom_test(self, testing_samples_dir):
         if not self.load_checkpoint():
             print("\tFAILED >_<!")
@@ -715,9 +793,7 @@ class FaceAging(object):
             gender_male[i, 0] = self.image_value_range[-1]
             gender_female[i, 1] = self.image_value_range[-1]
 
-        self.test(images, gender_male, 'test_as_male.png')
-        self.test(images, gender_female, 'test_as_female.png')
+        self.test_synthesize(images, gender_male, 'test_as_male.png')
+        self.test_synthesize(images, gender_female, 'test_as_female.png')
 
         print '\n\tDone! Results are saved as %s\n' % os.path.join(self.save_dir, 'test', 'test_as_xxx.png')
-
-
