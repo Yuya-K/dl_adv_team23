@@ -792,8 +792,11 @@ class FaceAging(object):
         for i in range(gender_male.shape[0]):
             gender_male[i, 0] = self.image_value_range[-1]
             gender_female[i, 1] = self.image_value_range[-1]
-
-        self.test_synthesize(images, gender_male, 'test_as_male.png')
-        self.test_synthesize(images, gender_female, 'test_as_female.png')
-
-        print '\n\tDone! Results are saved as %s\n' % os.path.join(self.save_dir, 'test', 'test_as_xxx.png')
+        if self.synthesize == True:
+            self.test_synthesize(images, gender_male, 'test_as_male.png')
+            self.test_synthesize(images, gender_female, 'test_as_female.png')
+        else:
+            self.test(images, gender_male, 'test_as_male.png')
+            self.test(images, gender_female, 'test_as_female.png')
+            
+            print '\n\tDone! Results are saved as %s\n' % os.path.join(self.save_dir, 'test', 'test_as_xxx.png')
