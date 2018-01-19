@@ -6,7 +6,7 @@ import os, sys
 import better_exceptions
 from math import floor, ceil
 from argparse import ArgumentParser
-
+from tqdm import tqdm
 
 
 #CASCADE_PATH = "./haarcascades/haarcascade_frontalface_default.xml"
@@ -67,12 +67,12 @@ def crop_more(cropped_image, crop_ratio):
 def main():
     input_path = args.input_path
     output_path = args.output_path
-    if os.path.exists(output_path):
+    if not os.path.exists(output_path):
         os.mkdir(output_path)
     image_name_list = os.listdir(input_path)
     if args.max_num_image != 0:
         image_name_list = image_name_list[:args.max_num_image]
-    for image_name in image_name_list:
+    for image_name in tqdm(image_name_list):
         image_path = os.path.join(input_path, image_name)
         croped_image_list = crop_face(image_path)
         for idx, croped_image in enumerate(croped_image_list):
