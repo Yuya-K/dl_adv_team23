@@ -16,14 +16,6 @@ CASCADE_PATH = "./haarcascades/haarcascade_frontalface_alt.xml"
 
 SIZE = (128, 128)
 
-parser = ArgumentParser()
-parser.add_argument("-i", "--input_path", default="./input_images")
-parser.add_argument("-o", "--output_path", default="./output_images")
-parser.add_argument("-c", "--cascade_path", default=CASCADE_PATH)
-parser.add_argument("-r", "--crop_ratio", type=float, default=0.85)
-parser.add_argument("-m", "--max_num_image", type=int, default=0)
-args = parser.parse_args()
-
 
 def crop_face(image_path, cascade_path=CASCADE_PATH):
     """
@@ -49,7 +41,7 @@ def crop_face(image_path, cascade_path=CASCADE_PATH):
     return croped_image_list
 
 
-def crop_more(cropped_image, crop_ratio):
+def crop_more(cropped_image, crop_ratio=0.85):
     """
     crop the cropped image cropped_image more
     """
@@ -65,6 +57,14 @@ def crop_more(cropped_image, crop_ratio):
 
 
 def main():
+    parser = ArgumentParser()
+    parser.add_argument("-i", "--input_path", default="./input_images")
+    parser.add_argument("-o", "--output_path", default="./output_images")
+    parser.add_argument("-c", "--cascade_path", default=CASCADE_PATH)
+    parser.add_argument("-r", "--crop_ratio", type=float, default=0.85)
+    parser.add_argument("-m", "--max_num_image", type=int, default=0)
+    args = parser.parse_args()
+    
     input_path = args.input_path
     output_path = args.output_path
     if not os.path.exists(output_path):

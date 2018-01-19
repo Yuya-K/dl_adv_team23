@@ -215,6 +215,7 @@ class FaceAging(object):
 
         # *************************** load file names of images ******************************************************
         file_names = glob(os.path.join('./data', self.dataset_name, '*.jpg'))
+        file_names += glob(os.path.join('./data', self.dataset_name, '*.jpeg'))
         size_data = len(file_names)
         np.random.seed(seed=2017)
         if enable_shuffle:
@@ -691,11 +692,6 @@ class FaceAging(object):
                 self.gender: query_gender
             }
         )
-        print(query_labels.shape)
-        print(query_images.shape)
-        print(query_gender.shape)
-        print(type(z), type(G))
-        print(z.shape, G.shape)
         save_batch_images(
             batch_images=query_images,
             save_path=os.path.join(test_dir, 'input.png'),
@@ -727,9 +723,7 @@ class FaceAging(object):
             query_labels[i, labels[i]] = self.image_value_range[-1]
         query_images = np.tile(images, [self.num_categories, 1, 1, 1])
         query_gender = np.tile(gender, [self.num_categories, 1])
-        print(query_labels.shape)
-        print(query_images.shape)
-        print(query_gender.shape)
+
         z, G = self.session.run(
             [self.z, self.G],
             feed_dict={
@@ -751,6 +745,37 @@ class FaceAging(object):
             image_value_range=self.image_value_range,
             size_frame=[size_sample, size_sample]
         )
+        
+        
+    def test_synthesize_for_demo(self, images, gender, name):
+        test_dir = os.path.join(self.save_dir, 'test')
+        if not os.path.exists(test_dir):
+            os.makedirs(test_dir)
+        images = images[:int(np.sqrt(self.size_batch)), :, :, :]
+        gender = gender[:int(np.sqrt(self.size_batch)), :]
+        size_sample = images.shape[0]
+        labels = np.arange(size_sample)
+        labels = np.repeat(labels, size_sample)
+        query_labels = np.ones(
+            shape=(size_sample ** 2, size_sample),
+            dtype=np.float32
+        ) * self.image_value_range[0]
+        for i in range(query_labels.shape[0]):
+            query_labels[i, labels[i]] = self.image_value_range[-1]
+        query_images = np.tile(images, [self.num_categories, 1, 1, 1])
+        query_gender = np.tile(gender, [self.num_categories, 1])
+
+        z, G = self.session.run(
+            [self.z, self.G],
+            feed_dict={
+                self.input_image: query_images,
+                self.age: query_labels,
+                self.gender: query_gender
+            }
+        )
+        print G.shape
+        return G[0:10]
+
 
     def custom_test(self, testing_samples_dir):
         if not self.load_checkpoint():
@@ -760,7 +785,7 @@ class FaceAging(object):
             print("\tSUCCESS ^_^")
 
         num_samples = int(np.sqrt(self.size_batch))
-        file_names = glob(testing_samples_dir)
+        file_names = sorted(glob(testing_samples_dir))
         if len(file_names) < num_samples:
             print 'The number of testing images is must larger than %d' % num_samples
             exit(0)
@@ -794,3 +819,43 @@ class FaceAging(object):
             self.test(images, gender_female, 'test_as_female.png')
             
         print '\n\tDone! Results are saved as %s\n' % os.path.join(self.save_dir, 'test', 'test_as_xxx.png')
+        
+    def custom_test_for_demo(self, testing_samples_dir):
+        if not self.load_checkpoint():
+            print("\tFAILED >_<!")
+            exit(0)
+        else:
+            print("\tSUCCESS ^_^")
+        num_samples = int(np.sqrt(self.size_batch))
+        file_names = sorted(glob(testing_samples_dir))
+        print file_names
+        if len(file_names) < num_samples:
+            print 'The number of testing images is must larger than %d' % num_samples
+            exit(0)
+        sample_files = file_names[0:num_samples]
+        sample = [load_image(
+            image_path=sample_file,
+            image_size=self.size_image,
+            image_value_range=self.image_value_range,
+            is_gray=(self.num_input_channels == 1),
+        ) for sample_file in sample_files]
+        if self.num_input_channels == 1:
+            images = np.array(sample).astype(np.float32)[:, :, :, None]
+        else:
+            images = np.array(sample).astype(np.float32)
+        gender_male = np.ones(
+            shape=(num_samples, 2),
+            dtype=np.float32
+        ) * self.image_value_range[0]
+        gender_female = np.ones(
+            shape=(num_samples, 2),
+            dtype=np.float32
+        ) * self.image_value_range[0]
+        for i in range(gender_male.shape[0]):
+            gender_male[i, 0] = self.image_value_range[-1]
+            gender_female[i, 1] = self.image_value_range[-1]
+        images_male = self.test_synthesize_for_demo(images, gender_male, 'test_as_male.png')
+        images_female = self.test_synthesize_for_demo(images, gender_female, 'test_as_female.png')
+        
+        print 'Done!'
+        return images_male, images_female
