@@ -59,39 +59,21 @@ class FaceAging(object):
             [self.size_batch, self.size_image, self.size_image, self.num_input_channels],
             name='input_images'
         )
-        if self.synthesize == True:
-            assert self.size_batch % 2 == 0
-            self.age = tf.placeholder(
-                tf.float32,
-                [self.size_batch/2, self.num_categories],
-                name='age_labels'
-            )
-            self.gender = tf.placeholder(
-                tf.float32,
-                [self.size_batch/2, 2],
-                name='gender_labels'
-            )
-            self.z_prior = tf.placeholder(
-                tf.float32,
-                [self.size_batch/2, self.num_z_channels],
-                name='z_prior'
-            )
-        else:
-            self.age = tf.placeholder(
-                tf.float32,
-                [self.size_batch, self.num_categories],
-                name='age_labels'
-            )
-            self.gender = tf.placeholder(
-                tf.float32,
-                [self.size_batch, 2],
-                name='gender_labels'
-            )
-            self.z_prior = tf.placeholder(
-                tf.float32,
-                [self.size_batch, self.num_z_channels],
-                name='z_prior'
-            )
+        self.age = tf.placeholder(
+            tf.float32,
+            [self.size_batch, self.num_categories],
+            name='age_labels'
+        )
+        self.gender = tf.placeholder(
+            tf.float32,
+            [self.size_batch, 2],
+            name='gender_labels'
+        )
+        self.z_prior = tf.placeholder(
+            tf.float32,
+            [self.size_batch, self.num_z_channels],
+            name='z_prior'
+        )
 
         # ************************************* build the graph *******************************************************
         print '\n\tBuilding graph ...'
@@ -100,13 +82,17 @@ class FaceAging(object):
         self.z = self.encoder(
             image=self.input_image
         )
+        print(tf.shape(self.z))
         if self.synthesize == True:
-            idx = tf.range(self.size_batch)
+            idx = tf.range(int(self.size_batch/2), dtype=tf.int32)
             idx = tf.reshape(idx, [-1, 1])    # Convert to a len(yp) x 1 matrix.
             idx = tf.tile(idx, [1, 2])  # Create multiple columns.
             idx = tf.reshape(idx, [-1])       # Convert back to a vector.
-
-            self.z_synthesized = tf.segment_mean(self.z, idx)
+            
+            self.z_synthesized = tf.segment_sum(self.z, idx)
+            self.z_synthesized *= 0.5
+            self.z_synthesized = tf.concat(0, [self.z_synthesized, self.z_synthesized])
+            print(tf.shape(self.z_synthesized))
             
         # generator: z + label --> generated image
         if self.synthesize == True:
@@ -705,6 +691,11 @@ class FaceAging(object):
                 self.gender: query_gender
             }
         )
+        print(query_labels.shape)
+        print(query_images.shape)
+        print(query_gender.shape)
+        print(type(z), type(G))
+        print(z.shape, G.shape)
         save_batch_images(
             batch_images=query_images,
             save_path=os.path.join(test_dir, 'input.png'),
@@ -736,6 +727,9 @@ class FaceAging(object):
             query_labels[i, labels[i]] = self.image_value_range[-1]
         query_images = np.tile(images, [self.num_categories, 1, 1, 1])
         query_gender = np.tile(gender, [self.num_categories, 1])
+        print(query_labels.shape)
+        print(query_images.shape)
+        print(query_gender.shape)
         z, G = self.session.run(
             [self.z, self.G],
             feed_dict={
@@ -799,4 +793,4 @@ class FaceAging(object):
             self.test(images, gender_male, 'test_as_male.png')
             self.test(images, gender_female, 'test_as_female.png')
             
-            print '\n\tDone! Results are saved as %s\n' % os.path.join(self.save_dir, 'test', 'test_as_xxx.png')
+        print '\n\tDone! Results are saved as %s\n' % os.path.join(self.save_dir, 'test', 'test_as_xxx.png')
