@@ -1,13 +1,21 @@
 Face crop and alignment
 
 Usage:
-python align_faces.py --image [[path/to/input_image]] 
-	--output [[output_text(add to original name)]]
-	--shape-predictor [[path/to/predictor]] (optional)
+python face_normalize.py
+	-i --image [[path/to/input_dir]] 
+
+	-o --output [[path/to/output_dir]]
+
+	-p --shape-predictor [[path/to/predictor]] (optional)
+
+
+
 
 
 example:
-python align_faces.py --image images/test.jpg --output results/result
+python face_normalize.py --image images/test.jpg --output results/result
+
+
 
 
 dependencies:
